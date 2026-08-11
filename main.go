@@ -12,7 +12,7 @@ func main() {
 
 	// Ruta raíz - Hola Mundo
 	app.Get("/", func(c fiber.Ctx) error {
-		return c.SendString("¡Hola Mundo desde Fiber! 🚀")
+		return c.SendString("¡Hola Mundo! 🚀")
 	})
 
 	// Ruta con parámetro opcional

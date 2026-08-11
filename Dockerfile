@@ -1,10 +1,10 @@
 FROM golang:1.26-bookworm AS base
 WORKDIR /go/app/base
 
-RUN apt-get update 
-RUN apt-get install -y build-essential
-RUN apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
-RUN rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y build-essential && \
+    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY go.mod .
 #COPY go.sum .
@@ -23,6 +23,6 @@ WORKDIR /go/app/bin
 
 COPY --from=builder /go/app/builder/main /go/app/bin/main
 
-EXPOSE 8080
+EXPOSE 3000
 
 CMD ["/go/app/bin/main"]
