@@ -28,12 +28,23 @@ jobs:
           echo "IMAGE=$REGISTRY/${{ github.event.repository.name }}" >> "$GITHUB_ENV"
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
-      # 3. Login a Azure con el Service Principal, desde un único secret con el
-      #    JSON completo de credenciales (ver formato abajo).
+      # 3. Login a Azure con el Service Principal usando AZURE_CREDENTIALS.
+      #    Extraemos campos puntuales para tolerar JSON con comas finales.
       - name: Azure login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        shell: bash
+        run: |
+          CREDS='${{ secrets.AZURE_CREDENTIALS }}'
+
+          CLIENT_ID="$(echo "$CREDS" | sed -nE 's/.*"clientId"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
+          CLIENT_SECRET="$(echo "$CREDS" | sed -nE 's/.*"clientSecret"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
+          TENANT_ID="$(echo "$CREDS" | sed -nE 's/.*"tenantId"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
+          SUBSCRIPTION_ID="$(echo "$CREDS" | sed -nE 's/.*"subscriptionId"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
+
+          [ -n "$CLIENT_ID" ] && [ -n "$CLIENT_SECRET" ] && [ -n "$TENANT_ID" ] && [ -n "$SUBSCRIPTION_ID" ] \
+            || { echo "AZURE_CREDENTIALS no contiene los campos requeridos"; exit 1; }
+
+          az login --service-principal -u "$CLIENT_ID" -p "$CLIENT_SECRET" --tenant "$TENANT_ID"
+          az account set --subscription "$SUBSCRIPTION_ID"
 
       # 4. Login al ACR reutilizando la sesión del paso anterior (mismo SP,
       #    sin usuario admin). ${REGISTRY%%.*} = REGISTRY sin el .azurecr.io
