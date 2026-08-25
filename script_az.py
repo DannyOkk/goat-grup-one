@@ -41,6 +41,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except AttributeError:
+    pass  # Python < 3.7 sin reconfigure; los emojis podrían no imprimirse bien
+
 # ---------------------------------------------------------------------------
 # Habilitar secuencias ANSI en terminales de Windows antiguas
 # (Windows Terminal ya las soporta nativamente; esto cubre cmd.exe clásico)
@@ -1268,7 +1273,7 @@ def print_menu() -> None:
     print(f"  {Color.BOLD}4{Color.RESET}) {Color.info('Pull')}               bajar imagen del ACR a la máquina local")
     print(f"  {Color.BOLD}5{Color.RESET}) {Color.info('Logs y Telemetría')}   streaming de trazas en tiempo real")
     print(f"  {Color.BOLD}6{Color.RESET}) {Color.info('Reconfigurar')}        volver a elegir infraestructura vía az CLI")
-    print(f"  {Color.BOLD}0{Color.RESET}) {Color.error('Salir')}")
+    print(f"  {Color.BOLD}0{Color.RESET}) {Color.error('Salir')}              (opción para cerrar sesión de az CLI)")
     print()
 
 
@@ -1390,6 +1395,13 @@ def main() -> None:
             InteractiveSetup.configure_all(config)
 
         elif choice == "0":
+            if confirm("¿Cerrar la sesión de Azure CLI (az logout) antes de salir?"):
+                log_info("az logout ...")
+                code, _ = run_cmd(["az", "logout"], timeout=30)
+                if code == 0:
+                    log_ok("Sesión de Azure CLI cerrada")
+                else:
+                    log_warn("No se pudo cerrar la sesión (puede que ya estuviera cerrada)")
             print(f"\n{Color.ok('👋 ¡Hasta luego!')}\n")
             break
 
