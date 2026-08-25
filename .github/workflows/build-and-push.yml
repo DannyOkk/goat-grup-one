@@ -19,7 +19,7 @@ jobs:
     steps:
       # 1. Traer el repo (incluye el Dockerfile de la raíz).
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # 2. Nombre de imagen (repo dinámico desde el contexto) + SHA corto de 7 chars.
       #    Se exportan a $GITHUB_ENV para no repetir las expresiones más abajo.
