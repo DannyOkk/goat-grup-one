@@ -51,7 +51,9 @@ jobs:
       #    (tag del SHA corto, no :latest, para que cada deploy sea explícito
       #    sobre qué commit está corriendo). Crea el Container App (y su
       #    entorno, si no existe todavía) o actualiza uno existente.
+      #    Se salta si el mensaje del commit incluye "/notdeploy".
       - name: Deploy to Azure Container Apps
+        if: ${{ !contains(github.event.head_commit.message, '/notdeploy') }}
         uses: azure/container-apps-deploy-action@v2
         with:
           resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
@@ -64,6 +66,25 @@ jobs:
           targetPort: 3000
           ingress: external
           location: 'eastus'
+
+      # 7. Parar y eliminar la Container App apenas terminó el deploy, para
+      #    no dejarla corriendo consumiendo créditos de Azure for Students.
+      #    Cada push vuelve a crearla desde cero en el paso anterior.
+      #    Se saltan junto con el deploy si el commit incluye "/notdeploy".
+      - name: Stop Container App
+        if: ${{ !contains(github.event.head_commit.message, '/notdeploy') }}
+        run: |
+          az containerapp stop \
+            --name "${{ github.event.repository.name }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}"
+
+      - name: Delete Container App
+        if: ${{ !contains(github.event.head_commit.message, '/notdeploy') }}
+        run: |
+          az containerapp delete \
+            --name "${{ github.event.repository.name }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --yes
 
       - name: Logout from Azure
         run: az logout
