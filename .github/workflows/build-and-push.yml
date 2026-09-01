@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: acringenieria.azurecr.io #TODO: cambiar por variable en secrets
+  REGISTRY: ${{ secrets.ACR_REGISTRY }}
 
 permissions:
   contents: read # solo leemos el código; no usamos OIDC, así que no hace falta id-token
