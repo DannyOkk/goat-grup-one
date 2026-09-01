@@ -307,7 +307,10 @@ class Config:
         self.environment: str = get("CONTAINERAPP_ENVIRONMENT", "")
 
         # --- Nombre de la Container App ---
-        self.app_name: str = get("CONTAINERAPP_NAME", "app-azure-instancia")
+        # Default vacío (no "app-azure-instancia") a propósito: así, si ya
+        # existe una app real en el resource group, el picker interactivo
+        # la prioriza a ella en vez de tapar la lista con este default.
+        self.app_name: str = get("CONTAINERAPP_NAME", "")
 
         # --- Imagen Docker ---
         self.image_name: str = get("IMAGE_NAME", "app-azure")
