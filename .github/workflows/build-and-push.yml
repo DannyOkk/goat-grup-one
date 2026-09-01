@@ -24,9 +24,22 @@ jobs:
       # 2. Nombre de imagen (repo dinámico desde el contexto) + SHA corto de 7 chars.
       #    Se exportan a $GITHUB_ENV para no repetir las expresiones más abajo.
       - name: Set image vars
+        env:
+          # El mensaje del commit se pasa como env var (no interpolado
+          # directo en el script) para evitar command injection: alguien
+          # podría meter "$(...)" o backticks en el mensaje de un commit.
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           echo "IMAGE=$REGISTRY/${{ github.event.repository.name }}" >> "$GITHUB_ENV"
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          # "/deploy" en el mensaje del commit = no se buildea nada nuevo,
+          # se redeploya la última imagen ya subida (tag :latest). Si no,
+          # se despliega la que se acaba de construir (tag del SHA).
+          if [[ "$COMMIT_MSG" == *"/deploy"* ]]; then
+            echo "DEPLOY_TAG=latest" >> "$GITHUB_ENV"
+          else
+            echo "DEPLOY_TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          fi
 
       # 3. Login a Azure con el Service Principal. La action oficial parsea el
       #    JSON, hace el az login y limpia la sesión en un post-step.
@@ -42,7 +55,10 @@ jobs:
 
       # 5. Build con los dos tags de una sola pasada (una imagen, dos nombres)
       #    y push de ambos: acringenieria.azurecr.io/<repo>:<sha> y :latest
+      #    Se salta si el mensaje del commit incluye "/deploy" (redeploy de
+      #    la imagen que ya está en el ACR, sin construir una nueva).
       - name: Build and push
+        if: ${{ !contains(github.event.head_commit.message, '/deploy') }}
         run: |
           docker build -t "$IMAGE:$SHORT_SHA" -t "$IMAGE:latest" .
           docker push --all-tags "$IMAGE"
@@ -59,7 +75,7 @@ jobs:
           resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
           containerAppName: ${{ github.event.repository.name }}
           containerAppEnvironment: ${{ github.event.repository.name }}-env
-          imageToDeploy: ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
+          imageToDeploy: ${{ env.IMAGE }}:${{ env.DEPLOY_TAG }}
           registryUrl: ${{ env.REGISTRY }}
           registryUsername: ${{ secrets.REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.REGISTRY_PASSWORD }}
