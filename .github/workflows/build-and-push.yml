@@ -83,27 +83,10 @@ jobs:
           ingress: external
           location: 'eastus'
 
-      # 7. Parar y eliminar la Container App apenas terminó el deploy, para
-      #    no dejarla corriendo consumiendo créditos de Azure for Students.
-      #    Cada push vuelve a crearla desde cero en el paso anterior.
-      #    Se saltan junto con el deploy si el commit incluye "/notdeploy".
-      # `az containerapp stop` no existe en la versión del extension
-      # containerapp de este runner ("misspelled or not recognized"),
-      # así que se invoca la misma acción vía REST API.
-      - name: Stop Container App
-        if: ${{ !contains(github.event.head_commit.message, '/notdeploy') }}
-        run: |
-          SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-          az rest --method post --output none --uri \
-            "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/${{ secrets.AZURE_RESOURCE_GROUP }}/providers/Microsoft.App/containerApps/${{ github.event.repository.name }}/stop?api-version=2024-03-01"
-
-      - name: Delete Container App
-        if: ${{ !contains(github.event.head_commit.message, '/notdeploy') }}
-        run: |
-          az containerapp delete \
-            --name "${{ github.event.repository.name }}" \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --yes
-
+      # Nota: Parar/Eliminar la Container App NO se hace acá — se maneja a
+      # mano con script_az.py (menú 3 → a/d) cuando haga falta. Hacerlo
+      # automático después de cada deploy dejaba el entorno de Container Apps
+      # vacío, y Azure lo marca para auto-borrado ("ScheduledForDelete"),
+      # rompiendo el próximo deploy.
       - name: Logout from Azure
         run: az logout
