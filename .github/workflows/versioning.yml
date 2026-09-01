@@ -1,0 +1,73 @@
+name: Semantic Versioning
+
+# En cada push a main, crea un tag vX.Y.Z automático según el mensaje del
+# commit (Conventional Commits): breaking change -> major (X), feat -> minor
+# (Y), fix/refactor -> patch (Z), doc/chore -> no versiona.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # necesario para crear y pushear el tag
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Trae todo el historial y los tags existentes (fetch-depth: 0),
+      # necesario para poder encontrar el último tag vX.Y.Z.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Bump version tag
+        env:
+          # El mensaje del commit va por env var, no interpolado directo en
+          # el script, para evitar command injection.
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          # 1. Determinar el tipo de bump según el mensaje del commit.
+          #    Breaking change ("!" tras el tipo, o "BREAKING CHANGE:" en el
+          #    cuerpo) -> major (X). feat(...): -> minor (Y).
+          #    fix(...):/refactor(...): -> patch (Z). doc/chore -> sin bump.
+          BUMP=""
+          if [[ "$COMMIT_MSG" =~ ^[a-z]+(\(.*\))?!: ]] || [[ "$COMMIT_MSG" == *"BREAKING CHANGE:"* ]]; then
+            BUMP="major"
+          elif [[ "$COMMIT_MSG" =~ ^feat(\(.*\))?: ]]; then
+            BUMP="minor"
+          elif [[ "$COMMIT_MSG" =~ ^(fix|refactor)(\(.*\))?: ]]; then
+            BUMP="patch"
+          fi
+
+          if [[ -z "$BUMP" ]]; then
+            echo "Commit no dispara versionado (doc/chore/sin prefijo reconocido) — sin cambios."
+            exit 0
+          fi
+
+          # 2. Último tag existente (default v0.0.0 si todavía no hay ninguno).
+          LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          LAST_TAG=${LAST_TAG:-v0.0.0}
+          VERSION=${LAST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # 3. Calcular la nueva versión según el bump.
+          if [[ "$BUMP" == "major" ]]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [[ "$BUMP" == "minor" ]]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+
+          echo "Último tag: $LAST_TAG -> Nuevo tag: $NEW_TAG (bump: $BUMP)"
+
+          # 4. Crear y pushear el tag.
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
