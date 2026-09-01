@@ -35,6 +35,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # DEBUG TEMPORAL: hash del valor de REGISTRY, para verificar el secret
+      # sin exponerlo (se borra apenas terminamos de diagnosticar).
+      - name: Debug registry hash
+        run: printf '%s' "$REGISTRY" | sha256sum
+
       # 4. Login al ACR reutilizando la sesión del paso anterior (mismo SP,
       #    sin usuario admin). ${REGISTRY%%.*} = REGISTRY sin el .azurecr.io
       - name: Login to ACR
