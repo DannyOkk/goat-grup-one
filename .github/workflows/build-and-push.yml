@@ -27,8 +27,6 @@ jobs:
         run: |
           echo "IMAGE=$REGISTRY/${{ github.event.repository.name }}" >> "$GITHUB_ENV"
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-          # DNS label para ACI: debe ser único global, solo minúsculas/guiones.
-          echo "DNS_LABEL=$(echo '${{ github.repository }}' | tr '[:upper:]/' '[:lower:]-')" >> "$GITHUB_ENV"
 
       # 3. Login a Azure con el Service Principal. La action oficial parsea el
       #    JSON, hace el az login y limpia la sesión en un post-step.
@@ -49,24 +47,23 @@ jobs:
           docker build -t "$IMAGE:$SHORT_SHA" -t "$IMAGE:latest" .
           docker push --all-tags "$IMAGE"
 
-      # 6. Deploy a Azure Container Instances con la imagen recién pusheada
+      # 6. Deploy a Azure Container Apps con la imagen recién pusheada
       #    (tag del SHA corto, no :latest, para que cada deploy sea explícito
-      #    sobre qué commit está corriendo).
-      - name: Deploy to Azure Container Instances
-        uses: azure/aci-deploy@v1
+      #    sobre qué commit está corriendo). Crea el Container App (y su
+      #    entorno, si no existe todavía) o actualiza uno existente.
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
         with:
-          resource-group: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          name: ${{ github.event.repository.name }}
-          image: ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
-          location: 'east us'
-          registry-login-server: ${{ env.REGISTRY }}
-          registry-username: ${{ secrets.REGISTRY_USERNAME }}
-          registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-          dns-name-label: dns-label-${{ github.run_id }}-${{ github.run_attempt }}
-          ports: 3000
-          cpu: 1
-          memory: 1
-          restart-policy: Always
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          containerAppName: ${{ github.event.repository.name }}
+          containerAppEnvironment: ${{ github.event.repository.name }}-env
+          imageToDeploy: ${{ env.IMAGE }}:${{ env.SHORT_SHA }}
+          registryUrl: ${{ env.REGISTRY }}
+          registryUsername: ${{ secrets.REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.REGISTRY_PASSWORD }}
+          targetPort: 3000
+          ingress: external
+          location: 'eastus'
 
       - name: Logout from Azure
         run: az logout
